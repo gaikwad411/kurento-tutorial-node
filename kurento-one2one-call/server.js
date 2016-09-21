@@ -136,6 +136,9 @@ CallMediaPipeline.prototype.createPipeline = function(callerId, calleeId, ws, ca
 
                 callerWebRtcEndpoint.on('OnIceCandidate', function(event) {
                     var candidate = kurento.getComplexType('IceCandidate')(event.candidate);
+                    console.log('=== on caller on ice candidate ===');
+                    console.log(candidate);
+
                     userRegistry.getById(callerId).ws.send(JSON.stringify({
                         id : 'iceCandidate',
                         candidate : candidate
@@ -157,30 +160,104 @@ CallMediaPipeline.prototype.createPipeline = function(callerId, calleeId, ws, ca
 
                     calleeWebRtcEndpoint.on('OnIceCandidate', function(event) {
                         var candidate = kurento.getComplexType('IceCandidate')(event.candidate);
+
+                        console.log('=== on calleee on ice candidate ===');
+                        console.log(candidate);
+
                         userRegistry.getById(calleeId).ws.send(JSON.stringify({
                             id : 'iceCandidate',
                             candidate : candidate
-                        }));
+                         }));
                     });
 
-                    callerWebRtcEndpoint.connect(calleeWebRtcEndpoint, function(error) {
-                        if (error) {
-                            pipeline.release();
+                    // Create caller recorder end point
+                    pipeline.create('RecorderEndpoint', {'uri':'file:///home/admin1/kurento-recs/recorder_demo_caller.webm'}, 
+                        function(error , callerRecorder){
+                        if(error)
+                        {
+                            console.log('=== Could not create caller recorder end point ===');
                             return callback(error);
                         }
 
-                        calleeWebRtcEndpoint.connect(callerWebRtcEndpoint, function(error) {
-                            if (error) {
-                                pipeline.release();
+                        console.log('=========== caller recorder created  ==========');
+                        pipeline.callerRecorder = callerRecorder;
+
+
+                        callerWebRtcEndpoint.connect(pipeline.callerRecorder, function(error){
+                            if(error)
+                            {
+                                console.log("==== Could not connect caller recorder end point.===")
                                 return callback(error);
                             }
+                            console.log('==== caller recorder connected ====');
+                            pipeline.callerRecorder.record(function(){
+                                console.log('==== caller recording started ====');
+
+                            });
                         });
 
-                        self.pipeline = pipeline;
-                        self.webRtcEndpoint[callerId] = callerWebRtcEndpoint;
-                        self.webRtcEndpoint[calleeId] = calleeWebRtcEndpoint;
-                        callback(null);
+
+                        // Create callee recorder end point
+                        pipeline.create('RecorderEndpoint', {'uri':'file:///home/admin1/kurento-recs/recorder_demo_callee.webm'}, 
+                            function(error , calleeRecorder){
+                                if(error)
+                                {
+                                    console.log('=== Could not create callee recorder end point ===');
+                                    return callback(error);
+                                }
+
+                                console.log('=========== callee recorder created  ==========');
+                                pipeline.calleeRecorder = calleeRecorder;
+
+
+                                calleeWebRtcEndpoint.connect(pipeline.calleeRecorder, function(error){
+                                    if(error)
+                                    {
+                                        console.log("==== Could not connect callee recorder end point.===")
+                                        return callback(error);
+                                    }
+                                    console.log('==== callee recorder connected ====');
+                                    pipeline.calleeRecorder.record(function(){
+                                        console.log('==== callee recording started ====');
+
+                                    });
+                                });
+
+                                // Both end points connected now 
+                                // lets connect webrtc streams
+                                callerWebRtcEndpoint.connect(calleeWebRtcEndpoint, 
+                                    function(error) {
+                                        if (error) {
+                                            pipeline.release();
+                                            return callback(error);
+                                        }
+
+                                        calleeWebRtcEndpoint.connect(callerWebRtcEndpoint, function(error) {
+                                            if (error) {
+                                                pipeline.release();
+                                                return callback(error);
+                                            }
+                                        });
+
+                                        self.pipeline = pipeline;
+                                        self.webRtcEndpoint[callerId] = callerWebRtcEndpoint;
+                                        self.webRtcEndpoint[calleeId] = calleeWebRtcEndpoint;
+                                        callback(null);
+                                });
+
+
+                        });
+                           
+
+                        
+
+
+
                     });
+
+                    
+
+
                 });
             });
         });
@@ -197,7 +274,23 @@ CallMediaPipeline.prototype.generateSdpAnswer = function(id, sdpOffer, callback)
 }
 
 CallMediaPipeline.prototype.release = function() {
-    if (this.pipeline) this.pipeline.release();
+    if (this.pipeline) 
+    {
+        if(this.pipeline.calleeRecorder)
+        {
+            console.log('==== Callee Recording stopped ====');
+            this.pipeline.calleeRecorder.stop();    
+        }
+
+        if(this.pipeline.callerRecorder)
+        {
+            console.log('==== Caller Recording stopped ====');
+            this.pipeline.callerRecorder.stop();
+        }
+        
+        this.pipeline.release();
+    }
+
     this.pipeline = null;
 }
 
