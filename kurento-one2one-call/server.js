@@ -171,7 +171,7 @@ CallMediaPipeline.prototype.createPipeline = function(callerId, calleeId, ws, ca
                     });
 
                     // Create caller recorder end point
-                    pipeline.create('RecorderEndpoint', {'uri':'file:///home/admin1/kurento-recs/recorder_demo_caller.webm'}, 
+                    pipeline.create('RecorderEndpoint', {'uri':'file:///home/admin1/kurento-recs/recorder_demo_'+callerId+'.webm'}, 
                         function(error , callerRecorder){
                         if(error)
                         {
@@ -198,7 +198,7 @@ CallMediaPipeline.prototype.createPipeline = function(callerId, calleeId, ws, ca
 
 
                         // Create callee recorder end point
-                        pipeline.create('RecorderEndpoint', {'uri':'file:///home/admin1/kurento-recs/recorder_demo_callee.webm'}, 
+                        pipeline.create('RecorderEndpoint', {'uri':'file:///home/admin1/kurento-recs/recorder_demo_'+callerId+'.webm'}, 
                             function(error , calleeRecorder){
                                 if(error)
                                 {
